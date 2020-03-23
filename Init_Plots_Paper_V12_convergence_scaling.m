@@ -1,8 +1,8 @@
 %% Default code
 clc; close all; clear;
 
-scale = false;
-base = false;
+scale = true;
+base = true;
 high = false;
 
 %% Simulation parameters
@@ -52,15 +52,6 @@ L = 2.5;
 quad_params.L = L;
 Delta = L/c7;
 
-if(scale)
-    Btil = Bd.*Delta;
-    Delta_unscaled = Delta;
-    Delta =1;
-else
-    Btil = Bd.*1;
-    Delta_unscaled = 1;
-end
-
 % MPC settings
 N = 50; % MPC horizon
 Q = 1.*diag([1,1,1]); % State Cost
@@ -69,19 +60,24 @@ Q = 1.*diag([1,1,1]); % State Cost
 R = 0.001;
 nconstr = 2*N+2;
 
+if(scale)
+    alf = sqrt(R);
+    Btil = Bd./alf;
+    R = R./alf^2;
+    Delta_unscaled = Delta;
+%     Q = Q./alf^2;
+    Delta =Delta;
+%     Delta = Delta;
+else
+    alf = 1;
+    Btil = Bd.*1;
+    Delta_unscaled = 1;
+end
+
 %% Reference
 amp = -1;
 freq = 1/6;
 [p_ref,v_ref,a_ref] = create_reference_trajectories(tend,dt,amp,freq);
-
-
-
-%% Saturated PD controller settings
-% Kp = 6;
-% Kv = 1.5;
-
-Kp = 1.5;
-Kv = 6;
 
 %% Initial conditions
 p0 = [-10;5;3];
@@ -174,13 +170,15 @@ mpc_params.B = Bd;
 mpc_params.Btil = Btil;
 mpc_params.nx = nx;
 mpc_params.c7 = c7;
+mpc_params.alf = alf;
+mpc_params.scale = scale;
 mpc_params.base = base;
 mpc_params.high = high;
 
 % Initialize P
-r = 0.9;
+r = 0.9/alf;
 P = dare(Atil,Btil,r*Q,R);
-while(x0'*P*x0*trace(P)>Delta/(2*trace(Btil*Btil')))
+while(x0'*P*x0*trace(P)>Delta^2/(2*trace(Btil*Btil')))
     r = 0.99*r;
     P = dare(Atil,Btil,r*Q,R);
 end
